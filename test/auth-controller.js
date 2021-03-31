@@ -1,11 +1,36 @@
+require('dotenv').config();
+
 const { expect } = require('chai');
 const sinon = require('sinon');
+const mongoose = require('mongoose');
 
 const authController = require('../controllers/auth');
 
 const User = require('../models/user');
 
 describe('Auth-Controller - Login ', function () {
+  before(function (done) {
+    mongoose
+      .connect(process.env.MONGODB_TEST, {
+        useUnifiedTopology: true,
+        useNewUrlParser: true,
+      })
+      .then(() => {
+        const user = new User({
+          name: 'Name',
+          email: 'test@test.com',
+          password: 'test',
+          _id: '605dedc7576e17414cf180af',
+          posts: [],
+        });
+        return user.save();
+      })
+      .then(() => {
+        done();
+      })
+      .catch((err) => console.log(err));
+  });
+
   it('should throw an error with code 500 if accessing the database failed', function (done) {
     sinon.stub(User, 'findOne');
     User.findOne.throws();
@@ -26,5 +51,35 @@ describe('Auth-Controller - Login ', function () {
       });
 
     User.findOne.restore();
+  });
+
+  it('should send a response with valid user status for an existing user', function (done) {
+    const req = { userId: '605dedc7576e17414cf180af' };
+    const res = {
+      statusCode: 500,
+      userStatus: null,
+      status: function (code) {
+        this.statusCode = code;
+        return this;
+      },
+      json: function (data) {
+        this.userStatus = data.status;
+      },
+    };
+    authController
+      .getUserStatus(req, res, () => {})
+      .then(() => {
+        expect(res.statusCode).to.be.equal(200);
+        expect(res.userStatus).to.be.equal('I am new!');
+        done();
+      });
+  });
+
+  after(function (done) {
+    User.deleteMany({}).then(() => {
+      return mongoose.disconnect().then(() => {
+        done();
+      });
+    });
   });
 });
