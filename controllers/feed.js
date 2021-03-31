@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 
-const io = require('../socket');
+// const io = require('../socket');
 
 const { validationResult } = require('express-validator');
 
@@ -76,16 +76,13 @@ exports.createPost = async (req, res, next) => {
     await post.save();
     const user = await User.findById(req.userId);
     user.posts.push(post);
-    await user.save();
-    io.getIO().emit('posts', {
-      action: 'create',
-      post: { ...post._doc, creator: { _id: req.userId, name: user.name } },
-    });
+    const savedUser = await user.save();
     res.status(201).json({
       message: 'Success!',
       post: post,
       creator: { _id: user._id, name: user.name },
     });
+    return savedUser;
   } catch (err) {
     if (!err.statusCode) {
       err.statusCode = 500;
